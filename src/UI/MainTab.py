@@ -44,6 +44,6 @@ class MainWindow(QWidget):
             )
             return
 
-        self.result_label.setText(f"Введено: {text}")
+        
 
 
