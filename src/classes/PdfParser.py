@@ -15,6 +15,7 @@ class PdfParser:
             "возвратах"]
 
     def detect_sber(self, file : str) -> bool:
+        '''Проверяет, что в файле есть сведения про сбер'''
         with fitz.open(file) as pdf:
             for page in pdf:
                 if "сбербанк" in page.get_text().lower():
@@ -24,6 +25,7 @@ class PdfParser:
         
     
     def detect_vozvrat(self, file : str) -> bool:
+        '''проверяет, что есть сведения о возврате госпошлины'''
         text = ""
         with fitz.open(file) as pdf:
             for page in pdf:

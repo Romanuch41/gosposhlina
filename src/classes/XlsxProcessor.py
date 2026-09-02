@@ -7,6 +7,7 @@ class XlsxProcessor:
         self.deals = []
 
     def create_load_data(self, xlsx_detail : str):
+        '''Готовит данные боту для поиска и скачивания файлов'''
         if not os.path.exists(xlsx_detail):
             return
         
@@ -24,4 +25,7 @@ class XlsxProcessor:
         self.deals = target_deal
     
     def get_deals(self):
+        '''Возвращает список номеров дел'''
+        if not self.deals:
+            return ValueError("Список пустой")
         return self.deals
