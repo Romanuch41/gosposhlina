@@ -52,26 +52,40 @@ class MainWindow(QWidget):
             return
         
         foldmanager = FileManager()
+        '''Собираем файлы .xlsx'''
         xlsxfile = foldmanager.get_xlsx_filse()
 
+        '''Берем целевой файл'''
         targ_file = next((s for s in xlsxfile if "Детальный" in s), None)
         xlsxproc = XlsxProcessor()
+        '''Готовим данные для загрузки актов'''
         xlsxproc.create_load_data(targ_file)
+        '''Создаем бота и запускаем процесс загрузки'''
         webbot = WebBot()
         while xlsxproc.get_next_deal():
             '''логика скачивания файлов'''
         
+        '''Собираем файлы из главной папки и создаем парсера pdf'''
         foldmanager.get_files_in_target_folder()
         pdfparser = PdfParser()
 
+        '''сортируем фалы'''
         while foldmanager.sub_files:
             file = foldmanager.get_next_file()
             if pdfparser.detect_sber(file):
                 foldmanager.move_actual(file)
             else:
                 foldmanager.move_other(file)
-
-
         
-
-
+        data_report = {}
+        for col in xlsxproc.report_col:
+            data_report[col] = []
+        
+        data_ressult = {}
+        for col in xlsxproc.result_col:
+            data_ressult[col] = []
+        
+        '''анализируем актуальные файлы'''
+        while foldmanager.actual_deal:
+            file = foldmanager.get_next_actual()
+            if pdfparser.detect_vozvrat(file):

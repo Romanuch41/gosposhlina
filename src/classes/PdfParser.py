@@ -57,6 +57,7 @@ class PdfParser:
         return False
         
     def get_gosposhlina(self, file):
+        '''парсит сумму включенной госпошлины'''
         pattern = r"государственной пошлины в размере\s+(\d+\s*[\d,]?)"
 
         with fitz.open(file) as pdf:
