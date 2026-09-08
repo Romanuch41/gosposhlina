@@ -8,6 +8,7 @@ class FileManager:
         self.actuals = ""
         self.others = ""
         self.sub_files = []
+        self.actual_deal = []
     
     def create_start_folders(self):
         '''Создает папки с релевантными и мусорными делами для сортировки уже скачанных файлов .pdf'''
@@ -37,4 +38,12 @@ class FileManager:
     def get_xlsx_filse(self) -> list:
         '''Собирает файлы .xlsx'''
         return glob(os.path.join(self.target_folder + "*.xlsx"))
-        
+    
+    def get_actual_deal(self):
+        self.actual_deal = [f for f in glob(os.path.join(self.target_folder, self.actuals, "*")) if os.path.isfile(f)]
+    
+    def get_next_actual(self) -> str:
+        '''Возвращает файл из списка с актуальными делами'''
+        if not self.actual_deal:
+            return None
+        return self.actual_deal.pop(0)

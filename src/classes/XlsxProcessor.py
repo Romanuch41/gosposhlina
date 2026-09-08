@@ -24,8 +24,8 @@ class XlsxProcessor:
         target_deal = [ d for d in df_detail["Судебный номер дела"] if re.match(mask, d)]
         self.deals = target_deal
     
-    def get_deals(self):
+    def get_next_deal(self):
         '''Возвращает список номеров дел'''
         if not self.deals:
             return ValueError("Список пустой")
-        return self.deals
+        return self.deals.pop(0)
