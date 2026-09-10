@@ -77,6 +77,7 @@ class MainWindow(QWidget):
             else:
                 foldmanager.move_other(file)
         
+        '''Готовим данные для отчетов'''
         data_report = {}
         for col in xlsxproc.report_col:
             data_report[col] = []
@@ -84,6 +85,7 @@ class MainWindow(QWidget):
         data_ressult = {}
         for col in xlsxproc.result_col:
             data_ressult[col] = []
+        
         
         '''анализируем актуальные файлы'''
         while foldmanager.actual_deal:
