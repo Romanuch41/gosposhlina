@@ -40,7 +40,14 @@ class XlsxProcessor:
             "Ответчики",
             "Актуальная сумма требований",
             "Суд, рассматривающий дело",
-            "Судебный номер дела"
+            "Судебный номер дела",
+            "Характеристика финального акта",
+            "Номер судебного дела",
+            "Код дела",
+            "Модель сбора",
+            "Ответчики",
+            "Наименование дела",
+            "cases.status"
         ]
 
     def create_load_data(self, xlsx_detail : str, xlsx_uvhd : str):
@@ -56,18 +63,20 @@ class XlsxProcessor:
         df_uvhd["Номер судебного дела"] = df_uvhd["Номер судебного дела"].astype(str)
 
         df_detail["Код дела"] = df_detail["Код дела"].apply(lambda x: x.lower().replace("cp-", ""))
-        df_detail = df_detail[df_detail["Категория дела"] == "Банкротство"]
+        df_detail = df_detail[(df_detail["Категория дела"] == "Банкротство")]
+        df_detail = df_detail[(df_detail["Наименование дела"].str.contains("Включение требований в реестр", na = False, case = False))]
 
-        mask = r"[АA]-\d+/d+"
-        deal_mask = r"([AaАа]\d+-\d+/\d{4})"
+        deal_mask = r".?([AaАа]\d+-\d+/\d{4})"
         df_uvhd = df_uvhd[df_uvhd["Назначение платежа_1"].str.contains(deal_mask, regex=True, case=False, na=False)]
-        df_uvhd["Судебный номер дела"] = df_uvhd["Назначение платежа_1"].apply(lambda x: re.search(deal_mask, x))
-        target_deal = [ d for d in df_detail["Судебный номер дела"] if re.match(mask, d)]
-        self.deals = target_deal
+        df_uvhd["Судебный номер дела"] = df_uvhd["Назначение платежа_1"].apply(lambda x: re.search(deal_mask, x).group(1) if re.search(deal_mask, x) else "None")
 
         self.target_df = pd.merge(df_detail, df_uvhd, on="Судебный номер дела", how="outer")
-        self.target_df = self.target_df.drop_duplicates(subset="Судебный номер дела", keep="last")
+        self.target_df = self.target_df.drop_duplicates(subset="Судебный номер дела", keep="last").reset_index()
+        self.target_df["Судебный номер дела"] = self.target_df["Судебный номер дела"].apply(lambda x: x.replace("№", ""))
         self.target_df = self.target_df[self.target_col]
+
+        target_deal = [ d for d in self.target_df["Судебный номер дела"] if re.search(deal_mask, d)]
+        self.deals = target_deal
     
     def get_next_deal(self):
         '''Возвращает список номеров дел'''

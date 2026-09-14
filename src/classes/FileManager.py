@@ -12,10 +12,21 @@ class FileManager:
     
     def create_start_folders(self):
         '''Создает папки с релевантными и мусорными делами для сортировки уже скачанных файлов .pdf'''
+        if not os.path.exists(self.target_folder):
+            os.mkdir(self.target_folder)
         self.actuals = os.path.join(self.target_folder, "actual")
         self.others = os.path.join(self.target_folder, "others")
-        os.mkdir(self.actuals)
-        os.mkdir(self.others)
+        if not os.path.exists(self.actuals):
+            os.mkdir(self.actuals)
+        else:
+            shutil.rmtree(self.actuals)
+            os.mkdir(self.actuals)
+        
+        if not os.path.exists(self.others):
+            os.mkdir(self.others)
+        else:
+            shutil.rmtree(self.others)
+            os.mkdir(self.others)
     
     def move_actual(self, file : str):
         '''Копирует файл в папку с релевантными файлами'''
@@ -27,7 +38,7 @@ class FileManager:
     
     def get_files_in_target_folder(self):
         '''собирает файлы из папки, в которую качаются фалы'''
-        self.sub_files = [f for f in glob(os.path.join(self.target_folder, "*")) if os.path.isfile(f)]
+        self.sub_files = [f for f in glob(os.path.join(self.target_folder, "**", "*.pdf"), recursive=True) if os.path.isfile(f)]
     
     def get_next_file(self) -> str:
         '''возвращает файл из списка (работает как stack)'''
