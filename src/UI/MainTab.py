@@ -1,6 +1,7 @@
 import os
 import sys
 import pandas as pd
+import re
 
 from PyQt6.QtCore import QThread, QObject, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -143,6 +144,8 @@ class KadSearchTab(QWidget):
 
         self.thread = None
         self.worker = None
+        self.filemanager = None
+        self.xlsxworker = None
 
         self.excel_field = QLineEdit(default_excel if os.path.exists(default_excel) else "")
         self.excel_field.setPlaceholderText("Excel-файл со столбцом «Номер дела»")
@@ -238,15 +241,15 @@ class KadSearchTab(QWidget):
         #    QMessageBox.warning(self, "Предупреждение", "В файле не найдено ни одного корректного номера дела.")
         #    return
         
-        xlsx_proc = XlsxProcessor()
+        self.xlsxworker = XlsxProcessor()
 
-        xlsx_proc.create_load_data(self.excel_files[0], self.excel_files[1])
+        self.xlsxworker.create_load_data(self.excel_files[0], self.excel_files[1])
 
-        file_manager = FileManager(output_dir)
-        file_manager.create_start_folders()
+        self.filemanager = FileManager(output_dir)
+        self.filemanager.create_start_folders()
         #os.makedirs(output_dir, exist_ok=True)
 
-        deals = xlsx_proc.deals[:10]
+        deals = self.xlsxworker.deals[:30]
         self.log_view.clear()
         self.progress_bar.setMaximum(len(deals))
         self.progress_bar.setValue(0)
@@ -274,24 +277,62 @@ class KadSearchTab(QWidget):
         self.worker.captcha_signal.connect(self.on_captcha_detected)
         self.worker.finished_signal.connect(self.thread.quit)
         self.worker.error_signal.connect(self.thread.quit)
-        self.analize_docs.con
         self.thread.finished.connect(self.on_thread_finished)
         self.thread.start()
         
     
-    def analize_docs(self, foldmanager : FileManager):
-        foldmanager.get_files_in_target_folder()
-        self.append_log(f"Получил скачанные файлы {len(foldmanager.sub_files)}")
+    def analize_docs(self):
+        self.filemanager.get_files_in_target_folder()
+        self.append_log(f"Получил скачанные файлы {len(self.filemanager.sub_files)}")
         pdfparser = PdfParser()
 
-        while foldmanager.sub_files:
-            file = foldmanager.get_next_file()
-            if pdfparser.detect_sber(file):
+        while self.filemanager.sub_files:
+            file = self.filemanager.get_next_file()
+            
+            dir_name = os.path.basename(os.path.dirname(file))
+            new_name = file.replace(".pdf", f" {dir_name}.pdf")
+            os.replace(file, new_name)
+            file = new_name
+            if pdfparser.detect_sber(file) and pdfparser.detect_rtk(file):
                 self.append_log("Найдено дело в отношении Сбербанк")
-                foldmanager.move_actual(file)
+                self.filemanager.move_actual(file)
             else:
                 self.append_log("Дело не относится к Сберу")
-                foldmanager.move_other(file)
+                self.filemanager.move_other(file)
+        
+        self.filemanager.get_actual_deal()
+        if not self.filemanager.actual_deal:
+            self.append_log("не найдено подходящих файлов для анализа")
+            return
+        
+        pattern_deal = r"(\w\d+-\d+-\d{4})"
+        self.xlsxworker.target_df["Сумма госпошлины"] = 0
+        while self.filemanager.actual_deal:
+            file = self.filemanager.get_next_actual()
+            self.append_log(f"current file {file}")
+            print(f"current file {file}")
+            deal_number = ""
+            deal_number_search = re.search(pattern_deal, file)
+            if deal_number_search:
+                deal_number = deal_number_search.group(1)
+                idx = deal_number.rfind("-")
+                deal_number = deal_number[:idx] + "/" + deal_number[idx + 1:]
+                print(deal_number) 
+
+            if pdfparser.detect_gosposhlina(file):
+                gos_summ = pdfparser.get_gosposhlina(file)
+                if gos_summ > 0:
+                    print(f"полученная сумма госпошлины {gos_summ}")
+
+            index = self.xlsxworker.target_df[self.xlsxworker.target_df["Судебный номер дела"].str.contains(deal_number, na = False, case = False)]
+            print(index)
+            for idx in index:
+                self.xlsxworker.target_df.loc["Сумма госпошлины", idx] = gos_summ
+        
+        self.xlsxworker.target_df.to_excel("text.xlsx", sheet_name="text", index=False)
+
+        
+
 
 
     def stop_search(self):
@@ -332,6 +373,7 @@ class KadSearchTab(QWidget):
         self.stop_button.setEnabled(False)
         self.excel_field.setEnabled(True)
         self.output_field.setEnabled(True)
+        self.analize_docs()
 
 
 class MainWindow(QWidget):

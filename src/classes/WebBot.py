@@ -191,9 +191,9 @@ class WebBot:
         options.add_argument(f"user-data-dir={os.path.abspath(self.user_data_dir)}")
         options.add_argument("--disable-blink-features=AutomationControlled")
         #options.add_argument("--start-maximized")
-        #options.add_argument("--no-sandbox")
+        options.add_argument("--no-sandbox")
         #options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        #options.add_experimental_option("useAutomationExtension", False)
+        options.add_experimental_option("useAutomationExtension", False)
         options.add_argument(f"user-agent={USER_AGENT}")
 
         # Скачивать PDF файлом в указанную папку вместо открытия во встроенном просмотрщике браузера
@@ -363,6 +363,27 @@ class WebBot:
         return "g-hidden" not in classes
 
     # ---------- карточка дела ----------
+    def _open_electronic_case_tab(self):
+        """
+        По умолчанию на карточке дела открыта вкладка "Карточки", где виден только один
+        (последний) документ по каждой инстанции. Полный список документов дела со всеми
+        приложенными PDF появляется в DOM только после перехода на вкладку "Электронное дело".
+        """
+        try:
+            ed_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".js-case-chrono-button--ed"))
+            )
+            ed_button.click()
+            WebDriverWait(self.driver, 15).until(
+                lambda d: d.find_elements(By.CSS_SELECTOR, "#chrono_ed_content a[href*='/Kad/PdfDocument/']")
+            )
+        except TimeoutException:
+            self._log(
+                "[-] Вкладка 'Электронное дело' не показала документов за отведенное время "
+                "(возможно, у дела нет вложений на этой вкладке). Используем то, что видно на 'Карточки'.",
+                level="warning",
+            )
+    
     def get_pdf_links(self, case_url: str) -> list:
         """Открывает карточку дела и собирает все ссылки на PDF-вложения (все инстанции)."""
         for attempt in range(1, self.max_retries + 1):
@@ -374,6 +395,9 @@ class WebBot:
                 WebDriverWait(self.driver, 20).until(
                     EC.presence_of_element_located((By.CLASS_NAME, "b-case-chrono-content"))
                 )
+
+                self._open_electronic_case_tab()
+                self._wait_captcha_if_any()
                 self._note_site_success()
 
                 links = []
@@ -479,6 +503,7 @@ class WebBot:
         while os.path.exists(filepath):
             filepath = f"{base}_{counter}{ext}"
             counter += 1
+        filepath = os.path.dirname(filepath)
         return filepath
 
     def download_pdf(self, url: str, filename: str, directory: str = None, referer: str = None) -> bool:
@@ -487,8 +512,11 @@ class WebBot:
         как это делает пользователь), до self.max_retries попыток. Возвращает True при успехе.
         """
         directory = directory or self.output_dir
+        self._log(f"{directory}")
         os.makedirs(directory, exist_ok=True)
         filepath = self._unique_filepath(filename, directory)
+        self._log(f"{filepath}")
+        counter = 0
 
         for attempt in range(1, self.max_retries + 1):
             self._check_stop()
@@ -521,6 +549,14 @@ class WebBot:
                     )
                     self._safe_remove(downloaded_path)
                 else:
+                    name_download = os.path.basename(downloaded_path)
+                    while os.path.exists(os.path.join(filepath, name_download)):
+                        counter+= 1
+                        new_download = downloaded_path.replace(".pdf", f"{counter}.pdf")
+                        os.replace(downloaded_path, new_download)
+                        downloaded_path = new_download
+                        name_download = os.path.basename(downloaded_path)
+
                     shutil.move(downloaded_path, filepath)
                     self._note_site_success()
                     self._log(f"    -> [Успешно] {os.path.basename(filepath)}")
