@@ -282,6 +282,7 @@ class KadSearchTab(QWidget):
         
     
     def analize_docs(self):
+        errors = {"error_files" : []}
         self.filemanager.get_files_in_target_folder()
         self.append_log(f"Получил скачанные файлы {len(self.filemanager.sub_files)}")
         pdfparser = PdfParser()
@@ -306,7 +307,8 @@ class KadSearchTab(QWidget):
             return
         
         pattern_deal = r"(\w\d+-\d+-\d{4})"
-        self.xlsxworker.target_df["Сумма госпошлины"] = 0
+        self.xlsxworker.target_df["Сумма госпошлины"] = "0"
+        self.xlsxworker.target_df["Файл"] = "None"
         while self.filemanager.actual_deal:
             file = self.filemanager.get_next_actual()
             self.append_log(f"current file {file}")
@@ -321,15 +323,31 @@ class KadSearchTab(QWidget):
 
             if pdfparser.detect_gosposhlina(file):
                 gos_summ = pdfparser.get_gosposhlina(file)
-                if gos_summ > 0:
+                if gos_summ and float(gos_summ) > 0:
                     print(f"полученная сумма госпошлины {gos_summ}")
+                else:
+                    gos_summ = "0.0"
+                    errors["error_files"].append(file)
 
-            index = self.xlsxworker.target_df[self.xlsxworker.target_df["Судебный номер дела"].str.contains(deal_number, na = False, case = False)]
+            index = self.xlsxworker.target_df[self.xlsxworker.target_df["Судебный номер дела"].str.contains(deal_number, na = False, case = False)].index.to_list()
+            if len(index) < 1:
+                if "A" in deal_number:
+                    deal_number = deal_number.replace("A", "А")
+                    index = self.xlsxworker.target_df[self.xlsxworker.target_df["Судебный номер дела"].str.contains(deal_number, na = False, case = False)].index.to_list()
+                elif "А" in deal_number:
+                    deal_number = deal_number.replace("А", "A")
+                    index = self.xlsxworker.target_df[self.xlsxworker.target_df["Судебный номер дела"].str.contains(deal_number, na = False, case = False)].index.to_list()
+            
             print(index)
-            for idx in index:
-                self.xlsxworker.target_df.loc["Сумма госпошлины", idx] = gos_summ
+            if len(index) > 0:
+                for idx in index:
+                    self.xlsxworker.target_df.loc[idx, "Сумма госпошлины"] = gos_summ
+                    self.xlsxworker.target_df.loc[idx, "Файл"] = file
         
         self.xlsxworker.target_df.to_excel("text.xlsx", sheet_name="text", index=False)
+        gos_summ = "0.0"
+        erdf = pd.DataFrame(errors)
+        erdf.to_excel("errors.xlsx", index = False)
 
         
 

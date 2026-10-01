@@ -69,13 +69,14 @@ class PdfParser:
         
     def get_gosposhlina(self, file):
         """Парсит сумму включенной госпошлины."""
-        pattern1 = r"(\d+\s+\d+).+по\s+оплате\s+госпошлины"
+        #pattern1 = r"(\d+\s+\d+).+по\s+оплате\s+госпошлины"
         #pattern2 = r"(\d+\s+\d+)\s+руб.+государств"
         pattern3 = r"(\d+\s+\d+)\s+руб\.\s+\d+\s+коп\.\s+.\s+госпошлин"
         pattern4 = r"государственной.+пошлины\s+в\s+размере\s+(\d+\s+\d+\s+руб).\s+(\d+)"
         pattern5 = r"(\d+\s+\d+\s+руб).\s+.\s+"
-        pattern6 = r"«сбербанк россии»\s+(\d+\s+\d+\s+рублей).+оплате\s+госпошлины"
-        patterns = [pattern4, pattern1, pattern3, pattern5, pattern6]
+        pattern6 = r"«[Сс]бербанк [Рр]оссии»\s+(\d+\s+\d+\s+руб[лей]?).\s+\w+\s+\w+\s+\w+\s+\w+\s+госпошлин"
+        pattern7 = r"(\d+\s+\d+\s+руб(?:ля)?)\s+(\d+\s+копеек)\s+госпошлин"
+        patterns = [pattern4, pattern3, pattern5, pattern6, pattern7]
 
         text = ""
 
@@ -106,6 +107,8 @@ class PdfParser:
                     .replace("\n", " ")
                     .replace(" ", "")
                     .replace("рублей", "")
+                    .replace("рубля", "")
+                    .replace("копеек", "")
                     .replace("коп", "")
                     .replace(",", ".")
                     .replace("руб", "")
@@ -125,7 +128,7 @@ class PdfParser:
         print(f"all amounts: {find_elements}")
 
         if find_elements:
-            return sum(find_elements)
+            return str(sum(find_elements))
 
         return ""
                         
